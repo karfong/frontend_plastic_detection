@@ -7,7 +7,8 @@ function App() {
   const [detectionResults, setDetectionResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
-  const [bottleCount, setBottleCount] = useState(0);
+  const [petBottleCount, setPetBottleCount] = useState(0);
+  const [hdpeBottleCount, setHdpeBottleCount] = useState(0);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -16,13 +17,14 @@ function App() {
       setPreview(URL.createObjectURL(file));
       setDetectionResults([]);
       setStatusMessage("");
-      setBottleCount(0);
+      setPetBottleCount(0);
+      setHdpeBottleCount(0);
     }
   };
 
   const handleUpload = async () => {
     if (!image) {
-      setStatusMessage("⚠️ Please select an image before uploading.");
+      setStatusMessage("Please select an image before uploading.");
       return;
     }
 
@@ -39,16 +41,24 @@ function App() {
 
       const detections = response.data.detections || [];
 
+      console.log("API Response:", detections); // Debugging
+
       if (detections.length === 0) {
         setStatusMessage("❌ This item cannot be recycled.");
         setDetectionResults([]);
-        setBottleCount(0);
+        setPetBottleCount(0);
+        setHdpeBottleCount(0);
         return;
       }
 
       setDetectionResults(detections);
-      const count = detections.filter(det => det.class === "PET Bottle").length;
-      setBottleCount(count);
+
+      // Count PET and HDPE bottles separately
+      const petCount = detections.filter(det => det.class.toLowerCase().includes("pet")).length;
+      const hdpeCount = detections.filter(det => det.class.toLowerCase().includes("hdpe")).length;
+
+      setPetBottleCount(petCount);
+      setHdpeBottleCount(hdpeCount);
       setStatusMessage("✅ Detection complete!");
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -63,20 +73,26 @@ function App() {
       <h1 className="text-3xl font-bold text-blue-700 mb-6">Plastic Detection System</h1>
 
       <div className="bg-white p-6 rounded-lg shadow-md w-96 flex flex-col items-center">
-        <input 
-          type="file" 
-          accept="image/*" 
-          onChange={handleFileChange} 
-          className="mb-4 text-sm"
-        />
+        <label className="cursor-pointer px-5 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition">
+          Choose File
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={handleFileChange} 
+            className="hidden"
+          />
+        </label>
 
         {preview && (
-          <img src={preview} alt="Preview" className="w-64 h-auto rounded-lg border shadow-md" />
+          <div className="mt-4">
+            <p className="text-sm text-gray-600">Preview:</p>
+            <img src={preview} alt="Preview" className="w-64 h-auto rounded-lg border shadow-md mt-2" />
+          </div>
         )}
 
         <button 
           onClick={handleUpload} 
-          className="mt-4 px-5 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition disabled:opacity-50"
+          className="mt-4 px-5 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition disabled:opacity-50"
           disabled={loading}
         >
           {loading ? "Processing..." : "Upload & Detect"}
@@ -90,19 +106,21 @@ function App() {
           <h3 className="text-lg font-bold text-gray-900">Detection Results:</h3>
 
           <p className="mt-2 text-lg font-bold text-blue-700">
-            Total Bottles Detected: {bottleCount}
+            Total Bottles Detected: {petBottleCount + hdpeBottleCount}
           </p>
+          <p className="text-md text-green-700">PET Bottles: {petBottleCount}</p>
+          <p className="text-md text-green-700">HDPE Bottles: {hdpeBottleCount}</p>
 
           <ul className="mt-3 space-y-2">
             {detectionResults.map((det, index) => (
               <li key={index} className="p-4 border-l-4 rounded-md shadow-sm text-gray-900 bg-gray-50"
-                style={{ borderColor: det.class === "PET Bottle" ? "#22c55e" : "#f97316" }}>
+                style={{ borderColor: (det.class.toLowerCase().includes("pet") || det.class.toLowerCase().includes("hdpe")) ? "#22c55e" : "#f97316" }}>
                 <p className="text-md font-bold">{det.class}</p>
                 <p>Confidence: <span className="font-semibold">{det.confidence}</span></p>
                 <p>BBox: <span className="text-xs">{JSON.stringify(det.bbox)}</span></p>
-                {det.class === "PET Bottle" && (
+                {det.class.toLowerCase().includes("pet") || det.class.toLowerCase().includes("hdpe") ? (
                   <p className="text-green-600 font-bold">♻️ This item is recyclable!</p>
-                )}
+                ) : null}
               </li>
             ))}
           </ul>
